@@ -1,0 +1,31 @@
+# permissions for end users to edit terminals.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: terminal-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: ethertun
+    app.kubernetes.io/part-of: ethertun
+    app.kubernetes.io/managed-by: kustomize
+  name: terminal-editor-role
+rules:
+- apiGroups:
+  - net.ethertun.com
+  resources:
+  - terminals
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - net.ethertun.com
+  resources:
+  - terminals/status
+  verbs:
+  - get

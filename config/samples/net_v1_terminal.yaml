@@ -1,0 +1,12 @@
+apiVersion: net.ethertun.com/v1
+kind: Terminal
+metadata:
+  labels:
+    app.kubernetes.io/name: terminal
+    app.kubernetes.io/instance: terminal-sample
+    app.kubernetes.io/part-of: ethertun
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: ethertun
+  name: terminal-sample
+spec:
+  # TODO(user): Add fields here

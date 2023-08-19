@@ -17,4 +17,13 @@ resources:
   kind: Task
   path: github.com/ethertun/k8s-operator/api/v1
   version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: ethertun.com
+  group: net
+  kind: Terminal
+  path: github.com/ethertun/k8s-operator/api/v1
+  version: v1
 version: "3"
