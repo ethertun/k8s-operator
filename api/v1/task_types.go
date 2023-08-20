@@ -17,25 +17,63 @@ limitations under the License.
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+
+// TaskState describes if a task has been created, is currently executing,
+// finished, or failed for some other reason
+// +kubebuilder:validation:Enum=Created;Starting;Running;Finished;Failed
+type TaskState string
+
+const (
+	Created  TaskState = "Created"
+	Starting TaskState = "Starting"
+	Running  TaskState = "Running"
+	Finished TaskState = "Finished"
+	Failed   TaskState = "Failed"
+)
 
 // TaskSpec defines the desired state of Task
 type TaskSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Task. Edit task_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Optional time to wait for until this task starts
+	// +optional
+	StartTime *metav1.Time `json:"startTime,omitempty"`
+
+	// Container specific items
+	// +optional
+	Container *ContainerSpec `json:"container,omitempty"`
+
+	// VPN configuration details
+	Config *ConfigSpec `json:"config,omitempty"`
+
+	// What to use as the storage/filesystem area for collected data
+	// +optional
+	Storage *StorageSpec `json:"storage,omitempty"`
 }
 
 // TaskStatus defines the observed state of Task
 type TaskStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// Unique id generated for this Job
+	// +optional
+	JobId string `json:"jobId,omitempty"`
+
+	// Reference to the job running this task
+	// +optional
+	Job *corev1.ObjectReference `json:"job,omitempty"`
+
+	// Number of attempts at this state/stage
+	// +optional
+	Attempt *int32 `json:"attempt,omitempty"`
+
+	// State of this task
+	State TaskState `json:"state,omitempty"`
 }
 
 //+kubebuilder:object:root=true
