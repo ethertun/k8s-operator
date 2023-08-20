@@ -25,15 +25,16 @@ import (
 
 // TaskState describes if a task has been created, is currently executing,
 // finished, or failed for some other reason
-// +kubebuilder:validation:Enum=Created;Starting;Running;Finished;Failed
+// +kubebuilder:validation:Enum=Created;Scheduled;Starting;Running;Finished;Failed
 type TaskState string
 
 const (
-	Created  TaskState = "Created"
-	Starting TaskState = "Starting"
-	Running  TaskState = "Running"
-	Finished TaskState = "Finished"
-	Failed   TaskState = "Failed"
+	Created   TaskState = "Created"
+	Scheduled TaskState = "Scheduled"
+	Starting  TaskState = "Starting"
+	Running   TaskState = "Running"
+	Finished  TaskState = "Finished"
+	Failed    TaskState = "Failed"
 )
 
 // TaskSpec defines the desired state of Task
@@ -43,6 +44,17 @@ type TaskSpec struct {
 	// Optional time to wait for until this task starts
 	// +optional
 	StartTime *metav1.Time `json:"startTime,omitempty"`
+
+	// Amount of time to attempt to start this task after the
+	// start time has passed
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Format=duration
+	Deadline *metav1.Duration `json:"deadline,omitempty"`
+
+	// Number of times the underlying job can fail before it's
+	// marked failed
+	// +optional
+	Limit *int32 `json:"limit"`
 
 	// Container specific items
 	// +optional
@@ -74,6 +86,10 @@ type TaskStatus struct {
 
 	// State of this task
 	State TaskState `json:"state,omitempty"`
+
+	// Description / Reason for failed State
+	// +optional
+	Reason string `json:"reason,omitempty"`
 }
 
 //+kubebuilder:object:root=true

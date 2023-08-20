@@ -23,6 +23,7 @@ package v1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -141,6 +142,16 @@ func (in *TaskSpec) DeepCopyInto(out *TaskSpec) {
 	if in.StartTime != nil {
 		in, out := &in.StartTime, &out.StartTime
 		*out = (*in).DeepCopy()
+	}
+	if in.Deadline != nil {
+		in, out := &in.Deadline, &out.Deadline
+		*out = new(metav1.Duration)
+		**out = **in
+	}
+	if in.Limit != nil {
+		in, out := &in.Limit, &out.Limit
+		*out = new(int32)
+		**out = **in
 	}
 	if in.Container != nil {
 		in, out := &in.Container, &out.Container

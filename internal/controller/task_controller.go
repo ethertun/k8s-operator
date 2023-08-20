@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -86,14 +85,14 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	} else if *task.Status.Attempt >= MAX_ATTEMPT {
 		// set status to failed
 		task.Status.State = netv1.Failed
+		task.Status.Reason = fmt.Sprintf("Too many attempts (%d / %d attempts)", *task.Status.Attempt, MAX_ATTEMPT)
 	}
 
 	var err error = nil
 	var result ctrl.Result = ctrl.Result{Requeue: false}
 	switch state := task.Status.State; state {
-	case netv1.Created:
-		log.V(1).Info("creating task", "jobId", task.Status.JobId)
-		err = r.reconcileCreated(ctx, &task)
+	case netv1.Scheduled:
+		err = r.reconcileScheduled(ctx, &task)
 	case netv1.Starting:
 		log.V(1).Info("starting task", "jobId", task.Status.JobId)
 		err = r.reconcileStarting(ctx, &task)
@@ -109,12 +108,14 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	case netv1.Finished:
 		log.V(1).Info("task successfully finished")
 	case netv1.Failed:
-		log.V(0).Info("task failed too many times", "attempts", *task.Status.Attempt)
+		log.V(0).Info("task failed", "attempts", *task.Status.Attempt, "start", task.Spec.StartTime, "deadline", task.Spec.Deadline)
 	default:
-		// No status found, update status to "Created" and don't reconcile
-		// again until its time to run the task
-		task.Status.State = netv1.Created
-		task.Status.JobId = genJobId(5)
+		// also same as "Created"
+		jobId := genJobId(5)
+		log.V(1).Info("creating task", "jobId", jobId)
+
+		task.Status.State = netv1.Scheduled
+		task.Status.JobId = jobId
 		result = ctrl.Result{RequeueAfter: task.Spec.StartTime.Sub(r.Now())}
 	}
 
@@ -145,16 +146,25 @@ func (r *TaskReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *TaskReconciler) reconcileCreated(ctx context.Context, task *netv1.Task) error {
-	// check if we should run this task
-	if task.Spec.StartTime.After(r.Now()) {
-		// don't run this task...yet
-		return nil
-	}
+func (r *TaskReconciler) reconcileScheduled(ctx context.Context, task *netv1.Task) error {
+	now := r.Now()
+	max := task.Spec.StartTime.Add(task.Spec.Deadline.Duration)
 
-	// ok, we should run this job
-	task.Status.State = netv1.Starting
-	*task.Status.Attempt = 1
+	// check if we should run this task
+	if task.Spec.StartTime.After(now) {
+		// No status updates...don't run this task...yet
+	} else if max.Before(now) {
+		// we missed the window to run this task, mark it as failed
+		start := task.Spec.StartTime.Format(time.RFC3339)
+		end := max.Format(time.RFC3339)
+
+		task.Status.State = netv1.Failed
+		task.Status.Reason = fmt.Sprintf("Missed time window (start: %s, end: %s)", start, end)
+	} else {
+		// ok, we should run this job, update status to starting
+		task.Status.State = netv1.Starting
+		*task.Status.Attempt = 1
+	}
 
 	return nil
 }
@@ -166,6 +176,7 @@ func (r *TaskReconciler) reconcileStarting(ctx context.Context, task *netv1.Task
 	job := &batchv1.Job{
 		ObjectMeta: construtObjectMeta(name, task.Namespace, emptyMap(), emptyMap()),
 		Spec: batchv1.JobSpec{
+			BackoffLimit: task.Spec.Limit,
 			Template: corev1.PodTemplateSpec{
 				Spec: podSpec,
 			},
@@ -208,7 +219,21 @@ func (r *TaskReconciler) reconcileRunning(ctx context.Context, task *netv1.Task)
 	}
 
 	if job.Status.Failed > 0 {
-		return false, errors.New("failed to run job")
+		// find the failed condition
+		var reason string = "unknown fail reason"
+		for _, c := range job.Status.Conditions {
+			if c.Type == batchv1.JobFailed && c.Status == corev1.ConditionTrue {
+				reason = c.Message
+			}
+		}
+
+		// set status as failed
+		task.Status.State = netv1.Failed
+		task.Status.Reason = reason
+
+		// don't return an error as the pod failing isn't a reconciliation error
+		// just a regular error
+		return false, nil
 	} else if job.Status.CompletionTime != nil {
 		task.Status.State = netv1.Finished
 		return false, nil
