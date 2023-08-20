@@ -89,7 +89,7 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	var err error = nil
-	var result ctrl.Result = ctrl.Result{}
+	var result ctrl.Result = ctrl.Result{Requeue: false}
 	switch state := task.Status.State; state {
 	case netv1.Created:
 		log.V(1).Info("creating task", "jobId", task.Status.JobId)
@@ -98,9 +98,11 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		log.V(1).Info("starting task", "jobId", task.Status.JobId)
 		err = r.reconcileStarting(ctx, &task)
 	case netv1.Running:
-		log.V(1).Info("running task", "jobId", task.Status.JobId)
-		err = r.reconcileRunning(ctx, &task)
-		if err == nil {
+		log.V(1).Info("checking task", "jobId", task.Status.JobId)
+
+		var requeue = false
+		requeue, err = r.reconcileRunning(ctx, &task)
+		if requeue {
 			// assuming no errors, check again in a minute
 			result = ctrl.Result{RequeueAfter: 60 * time.Second}
 		}
@@ -190,7 +192,10 @@ func (r *TaskReconciler) reconcileStarting(ctx context.Context, task *netv1.Task
 	return nil
 }
 
-func (r *TaskReconciler) reconcileRunning(ctx context.Context, task *netv1.Task) error {
+// Checks the current status of the job associated with the task and
+// returns a tuple containing if we should requeue this check (i.e.,
+// the job has not finished) or if an error occured
+func (r *TaskReconciler) reconcileRunning(ctx context.Context, task *netv1.Task) (bool, error) {
 	key := types.NamespacedName{
 		Name:      task.Status.Job.Name,
 		Namespace: task.Status.Job.Namespace,
@@ -199,14 +204,15 @@ func (r *TaskReconciler) reconcileRunning(ctx context.Context, task *netv1.Task)
 	// get the currently running job
 	var job batchv1.Job
 	if err := r.Get(ctx, key, &job); err != nil {
-		return err
+		return false, err
 	}
 
 	if job.Status.Failed > 0 {
-		return errors.New("failed to run job")
+		return false, errors.New("failed to run job")
 	} else if job.Status.CompletionTime != nil {
 		task.Status.State = netv1.Finished
+		return false, nil
 	}
 
-	return nil
+	return true, nil
 }
