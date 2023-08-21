@@ -24,6 +24,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ref "k8s.io/client-go/tools/reference"
@@ -50,7 +51,8 @@ type TaskReconciler struct {
 }
 
 const (
-	MAX_ATTEMPT int32 = 5
+	MAX_ATTEMPT    int32         = 5  // number of attempts to try reconciliation before marking as failed
+	CHECK_INTERVAL time.Duration = 60 // time to wait in between checks when in the "running" state
 )
 
 //+kubebuilder:rbac:groups=net.ethertun.com,resources=tasks,verbs=get;list;watch;create;update;patch;delete
@@ -103,10 +105,10 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		requeue, err = r.reconcileRunning(ctx, &task)
 		if requeue {
 			// assuming no errors, check again in a minute
-			result = ctrl.Result{RequeueAfter: 60 * time.Second}
+			result = ctrl.Result{RequeueAfter: CHECK_INTERVAL * time.Second}
 		}
 	case netv1.Finished:
-		log.V(1).Info("task successfully finished")
+		log.V(1).Info("task finished")
 	case netv1.Failed:
 		log.V(0).Info("task failed", "attempts", *task.Status.Attempt, "start", task.Spec.StartTime, "deadline", task.Spec.Deadline)
 	default:
@@ -228,14 +230,17 @@ func (r *TaskReconciler) reconcileRunning(ctx context.Context, task *netv1.Task)
 		}
 
 		// set status as failed
+		now := metav1.Now()
 		task.Status.State = netv1.Failed
 		task.Status.Reason = reason
+		task.Status.CompletionTime = &now
 
 		// don't return an error as the pod failing isn't a reconciliation error
 		// just a regular error
 		return false, nil
 	} else if job.Status.CompletionTime != nil {
 		task.Status.State = netv1.Finished
+		task.Status.CompletionTime = job.Status.CompletionTime
 		return false, nil
 	}
 

@@ -90,6 +90,10 @@ type TaskStatus struct {
 	// Description / Reason for failed State
 	// +optional
 	Reason string `json:"reason,omitempty"`
+
+	// Time this job stopped/finished (if successful)
+	// +optional
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 }
 
 //+kubebuilder:object:root=true
