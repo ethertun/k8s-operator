@@ -20,6 +20,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+const (
+	DEFAULT_IMAGE          = "ghcr.io/ethertun/k8s-operator:latest"
+	DEFAULT_RESTART_POLICY = corev1.RestartPolicyOnFailure
+)
+
 type StorageSpec struct {
 	// Name of a persistent volume claim (PVC)
 	// +optional

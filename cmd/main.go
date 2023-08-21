@@ -103,6 +103,13 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Terminal")
 		os.Exit(1)
 	}
+
+	if os.Getenv("ENABLE_WEBHOOKS") == "true" {
+		if err = (&netv1.Task{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Task")
+			os.Exit(1)
+		}
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
