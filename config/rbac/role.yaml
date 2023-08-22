@@ -1,0 +1,76 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs/status
+  verbs:
+  - get
+- apiGroups:
+  - net.ethertun.com
+  resources:
+  - tasks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - net.ethertun.com
+  resources:
+  - tasks/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - net.ethertun.com
+  resources:
+  - tasks/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - net.ethertun.com
+  resources:
+  - terminals
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - net.ethertun.com
+  resources:
+  - terminals/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - net.ethertun.com
+  resources:
+  - terminals/status
+  verbs:
+  - get
+  - patch
+  - update

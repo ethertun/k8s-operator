@@ -74,6 +74,11 @@ func (r *Task) Default() {
 		r.Spec.Config.SecretName = fmt.Sprintf("%s-cfg", r.Name)
 	}
 
+	if r.Spec.StartTime == nil {
+		r.Spec.StartTime = new(metav1.Time)
+		*r.Spec.StartTime = metav1.Now()
+	}
+
 	if r.Spec.Deadline == nil {
 		r.Spec.Deadline = new(metav1.Duration)
 		r.Spec.Deadline.Duration = DEFAULT_DEADLINE
@@ -86,7 +91,7 @@ func (r *Task) Default() {
 
 }
 
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
+// NOTE: change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 //+kubebuilder:webhook:path=/validate-net-ethertun-com-v1-task,mutating=false,failurePolicy=fail,sideEffects=None,groups=net.ethertun.com,resources=tasks,verbs=create;update,versions=v1,name=vtask.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &Task{}
@@ -127,6 +132,10 @@ func (r *Task) ValidateTask() error {
 		// a command must be specified
 		err := field.Required(field.NewPath("spec").Child("container").Child("command"), "a command must be specified")
 		allErrs = append(allErrs, err)
+	}
+
+	if len(allErrs) == 0 {
+		return nil
 	}
 
 	return apierrors.NewInvalid(
